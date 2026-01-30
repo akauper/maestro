@@ -1013,23 +1013,26 @@ class SessionManager: ObservableObject {
 
 struct ContentView: View {
     @StateObject private var manager = SessionManager()
+    @StateObject private var appearanceManager = AppearanceManager()
     @State private var statusMessage: String = "Select a directory to launch Claude Code instances"
     @State private var showBranchSidebar: Bool = false
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
 
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
-            SidebarView(manager: manager)
+            SidebarView(manager: manager, appearanceManager: appearanceManager)
                 .navigationSplitViewColumnWidth(min: 240, ideal: 240, max: 300)
         } detail: {
             MainContentView(
                 manager: manager,
+                appearanceManager: appearanceManager,
                 statusMessage: $statusMessage,
                 showBranchSidebar: $showBranchSidebar,
                 columnVisibility: $columnVisibility
             )
         }
         .navigationSplitViewStyle(.balanced)
+        .preferredColorScheme(appearanceManager.currentMode.colorScheme)
     }
 }
 
@@ -1037,6 +1040,7 @@ struct ContentView: View {
 
 struct MainContentView: View {
     @ObservedObject var manager: SessionManager
+    @ObservedObject var appearanceManager: AppearanceManager
     @Binding var statusMessage: String
     @Binding var showBranchSidebar: Bool
     @Binding var columnVisibility: NavigationSplitViewVisibility
@@ -1107,7 +1111,7 @@ struct MainContentView: View {
 
                 if manager.isRunning {
                     // Dynamic Terminal Grid
-                    DynamicTerminalGridView(manager: manager)
+                    DynamicTerminalGridView(manager: manager, appearanceManager: appearanceManager)
                 } else {
                     // Pre-launch view with status indicators
                     PreLaunchView(manager: manager, statusMessage: statusMessage)
@@ -1194,6 +1198,7 @@ extension Array {
 
 struct DynamicTerminalGridView: View {
     @ObservedObject var manager: SessionManager
+    @ObservedObject var appearanceManager: AppearanceManager
     @State private var isHoveringAdd = false
 
     var body: some View {
@@ -1226,6 +1231,7 @@ struct DynamicTerminalGridView: View {
                                 gitManager: manager.gitManager,
                                 isTerminalLaunched: manager.session(byId: session.id)?.isTerminalLaunched ?? false,
                                 isClaudeRunning: manager.session(byId: session.id)?.isClaudeRunning ?? false,
+                                appearanceMode: appearanceManager.currentMode,
                                 onLaunchClaude: { manager.launchClaudeInSession(session.id) },
                                 onClose: { manager.closeSession(session.id) },
                                 onTerminalLaunched: { manager.markTerminalLaunched(session.id) },
@@ -1398,10 +1404,18 @@ struct SessionStatusView: View {
                         .font(.caption)
                         .foregroundColor(session.mode.color)
 
-                    Image(systemName: session.status.icon)
-                        .font(.title2)
-                        .foregroundColor(session.status.color)
-                        .symbolEffect(.pulse, isActive: session.status == .working)
+                    Group {
+                        if #available(macOS 14.0, *) {
+                            Image(systemName: session.status.icon)
+                                .font(.title2)
+                                .foregroundColor(session.status.color)
+                                .symbolEffect(.pulse, isActive: session.status == .working)
+                        } else {
+                            Image(systemName: session.status.icon)
+                                .font(.title2)
+                                .foregroundColor(session.status.color)
+                        }
+                    }
 
                     Text("#\(session.id)")
                         .font(.headline)

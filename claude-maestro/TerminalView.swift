@@ -9,6 +9,87 @@ import SwiftUI
 import AppKit
 import SwiftTerm
 
+// MARK: - Terminal Color Scheme
+
+/// Defines a complete color scheme for terminal appearance
+/// Supports both light and dark themes with full ANSI color palette
+struct TerminalColorScheme {
+    let foreground: NSColor
+    let background: NSColor
+    let cursorColor: NSColor
+    let cursorTextColor: NSColor
+    let selectionColor: NSColor
+    let ansiColors: [SwiftTerm.Color]
+
+    // MARK: - Catppuccin Mocha (Dark Theme)
+    static let mocha = TerminalColorScheme(
+        foreground: NSColor(red: 205/255.0, green: 214/255.0, blue: 244/255.0, alpha: 1.0),  // Text
+        background: NSColor(red: 30/255.0, green: 30/255.0, blue: 46/255.0, alpha: 1.0),     // Base
+        cursorColor: NSColor(red: 245/255.0, green: 194/255.0, blue: 231/255.0, alpha: 1.0), // Pink
+        cursorTextColor: NSColor(red: 30/255.0, green: 30/255.0, blue: 46/255.0, alpha: 1.0), // Base (for contrast)
+        selectionColor: NSColor(red: 88/255.0, green: 91/255.0, blue: 112/255.0, alpha: 0.5), // Surface2 semi-transparent
+        ansiColors: [
+            // Standard colors (0-7)
+            SwiftTerm.Color(red: 40, green: 42, blue: 54),      // Black (darker for visibility)
+            SwiftTerm.Color(red: 243, green: 139, blue: 168),   // Red
+            SwiftTerm.Color(red: 166, green: 227, blue: 161),   // Green
+            SwiftTerm.Color(red: 249, green: 226, blue: 175),   // Yellow
+            SwiftTerm.Color(red: 137, green: 180, blue: 250),   // Blue
+            SwiftTerm.Color(red: 245, green: 194, blue: 231),   // Magenta (Pink)
+            SwiftTerm.Color(red: 148, green: 226, blue: 213),   // Cyan (Teal)
+            SwiftTerm.Color(red: 186, green: 194, blue: 222),   // White (Subtext1)
+            // Bright colors (8-15)
+            SwiftTerm.Color(red: 108, green: 112, blue: 134),   // Bright Black (Overlay0)
+            SwiftTerm.Color(red: 243, green: 139, blue: 168),   // Bright Red
+            SwiftTerm.Color(red: 166, green: 227, blue: 161),   // Bright Green
+            SwiftTerm.Color(red: 249, green: 226, blue: 175),   // Bright Yellow
+            SwiftTerm.Color(red: 137, green: 180, blue: 250),   // Bright Blue
+            SwiftTerm.Color(red: 245, green: 194, blue: 231),   // Bright Magenta
+            SwiftTerm.Color(red: 148, green: 226, blue: 213),   // Bright Cyan
+            SwiftTerm.Color(red: 205, green: 214, blue: 244),   // Bright White (Text)
+        ]
+    )
+
+    // MARK: - Catppuccin Latte (Light Theme)
+    static let latte = TerminalColorScheme(
+        foreground: NSColor(red: 76/255.0, green: 79/255.0, blue: 105/255.0, alpha: 1.0),    // Text
+        background: NSColor(red: 239/255.0, green: 241/255.0, blue: 245/255.0, alpha: 1.0),  // Base
+        cursorColor: NSColor(red: 136/255.0, green: 57/255.0, blue: 239/255.0, alpha: 1.0),  // Mauve
+        cursorTextColor: NSColor(red: 239/255.0, green: 241/255.0, blue: 245/255.0, alpha: 1.0), // Base (for contrast)
+        selectionColor: NSColor(red: 172/255.0, green: 176/255.0, blue: 190/255.0, alpha: 0.5),  // Surface2 semi-transparent
+        ansiColors: [
+            // Standard colors (0-7)
+            SwiftTerm.Color(red: 92, green: 95, blue: 119),     // Black (Subtext1)
+            SwiftTerm.Color(red: 210, green: 15, blue: 57),     // Red
+            SwiftTerm.Color(red: 64, green: 160, blue: 43),     // Green
+            SwiftTerm.Color(red: 223, green: 142, blue: 29),    // Yellow
+            SwiftTerm.Color(red: 30, green: 102, blue: 245),    // Blue
+            SwiftTerm.Color(red: 136, green: 57, blue: 239),    // Magenta (Mauve)
+            SwiftTerm.Color(red: 23, green: 146, blue: 153),    // Cyan (Teal)
+            SwiftTerm.Color(red: 188, green: 192, blue: 204),   // White (Surface1)
+            // Bright colors (8-15)
+            SwiftTerm.Color(red: 140, green: 143, blue: 161),   // Bright Black (Overlay0)
+            SwiftTerm.Color(red: 210, green: 15, blue: 57),     // Bright Red
+            SwiftTerm.Color(red: 64, green: 160, blue: 43),     // Bright Green
+            SwiftTerm.Color(red: 223, green: 142, blue: 29),    // Bright Yellow
+            SwiftTerm.Color(red: 30, green: 102, blue: 245),    // Bright Blue
+            SwiftTerm.Color(red: 136, green: 57, blue: 239),    // Bright Magenta
+            SwiftTerm.Color(red: 23, green: 146, blue: 153),    // Bright Cyan
+            SwiftTerm.Color(red: 76, green: 79, blue: 105),     // Bright White (Text)
+        ]
+    )
+
+    /// Returns the appropriate color scheme for the given appearance mode
+    static func scheme(for mode: AppearanceMode) -> TerminalColorScheme {
+        switch mode {
+        case .dark:
+            return .mocha
+        case .light:
+            return .latte
+        }
+    }
+}
+
 // MARK: - Custom Terminal View
 
 /// Custom terminal view that accepts first mouse click for immediate interaction
@@ -19,8 +100,14 @@ class MaestroTerminalView: LocalProcessTerminalView {
     }
 
     // Intercept key equivalents so SwiftUI doesn't swallow Cmd+C/V
+    // Only handle if THIS terminal is the first responder (fixes multi-split paste issue)
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         guard event.modifierFlags.contains(.command) else {
+            return super.performKeyEquivalent(with: event)
+        }
+
+        // Only handle if this terminal is the first responder
+        guard window?.firstResponder == self else {
             return super.performKeyEquivalent(with: event)
         }
 
@@ -99,6 +186,18 @@ class TerminalController {
     }
 }
 
+// MARK: - Color Scheme Helper
+
+/// Applies a color scheme to a terminal view
+private func applyColorScheme(_ scheme: TerminalColorScheme, to terminal: MaestroTerminalView) {
+    terminal.nativeForegroundColor = scheme.foreground
+    terminal.nativeBackgroundColor = scheme.background
+    terminal.caretColor = scheme.cursorColor
+    terminal.caretTextColor = scheme.cursorTextColor
+    terminal.selectedTextBackgroundColor = scheme.selectionColor
+    terminal.installColors(scheme.ansiColors)
+}
+
 // MARK: - Embedded Terminal View
 
 struct EmbeddedTerminalView: NSViewRepresentable {
@@ -108,6 +207,7 @@ struct EmbeddedTerminalView: NSViewRepresentable {
     let shouldLaunch: Bool
     let assignedBranch: String?
     let mode: TerminalMode
+    let appearanceMode: AppearanceMode
     var activityMonitor: ProcessActivityMonitor?  // For process-level activity detection
     var onLaunched: () -> Void
     var onCLILaunched: () -> Void
@@ -119,35 +219,13 @@ struct EmbeddedTerminalView: NSViewRepresentable {
     func makeNSView(context: Context) -> MaestroTerminalView {
         let terminal = MaestroTerminalView(frame: .zero)
         terminal.processDelegate = context.coordinator
-        terminal.font = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
 
-        // Configure terminal colors
-        // Use system color for background to match GitTreeView
-        terminal.nativeBackgroundColor = NSColor.controlBackgroundColor
-        terminal.nativeForegroundColor = NSColor(red: 205/255.0, green: 214/255.0, blue: 244/255.0, alpha: 1.0)
+        // Configure terminal font with Nerd Font support for oh-my-zsh icons
+        terminal.font = Self.getTerminalFont()
 
-        // Install Catppuccin Mocha ANSI color palette (16 colors)
-        let colors: [SwiftTerm.Color] = [
-            // Standard colors (0-7)
-            SwiftTerm.Color(red: 40, green: 42, blue: 54),      // Black (darker for visibility)
-            SwiftTerm.Color(red: 243, green: 139, blue: 168),   // Red
-            SwiftTerm.Color(red: 166, green: 227, blue: 161),   // Green
-            SwiftTerm.Color(red: 249, green: 226, blue: 175),   // Yellow
-            SwiftTerm.Color(red: 137, green: 180, blue: 250),   // Blue
-            SwiftTerm.Color(red: 245, green: 194, blue: 231),   // Magenta (Pink)
-            SwiftTerm.Color(red: 148, green: 226, blue: 213),   // Cyan (Teal)
-            SwiftTerm.Color(red: 186, green: 194, blue: 222),   // White (Subtext1)
-            // Bright colors (8-15)
-            SwiftTerm.Color(red: 108, green: 112, blue: 134),   // Bright Black (Overlay0)
-            SwiftTerm.Color(red: 243, green: 139, blue: 168),   // Bright Red
-            SwiftTerm.Color(red: 166, green: 227, blue: 161),   // Bright Green
-            SwiftTerm.Color(red: 249, green: 226, blue: 175),   // Bright Yellow
-            SwiftTerm.Color(red: 137, green: 180, blue: 250),   // Bright Blue
-            SwiftTerm.Color(red: 245, green: 194, blue: 231),   // Bright Magenta
-            SwiftTerm.Color(red: 148, green: 226, blue: 213),   // Bright Cyan
-            SwiftTerm.Color(red: 205, green: 214, blue: 244),   // Bright White (Text)
-        ]
-        terminal.installColors(colors)
+        // Apply color scheme based on current appearance mode
+        let scheme = TerminalColorScheme.scheme(for: appearanceMode)
+        applyColorScheme(scheme, to: terminal)
 
         context.coordinator.terminal = terminal
         controller?.coordinator = context.coordinator
@@ -155,6 +233,10 @@ struct EmbeddedTerminalView: NSViewRepresentable {
     }
 
     func updateNSView(_ terminal: MaestroTerminalView, context: Context) {
+        // Apply color scheme for dynamic theme switching
+        let scheme = TerminalColorScheme.scheme(for: appearanceMode)
+        applyColorScheme(scheme, to: terminal)
+
         if shouldLaunch && !context.coordinator.hasLaunched {
             context.coordinator.hasLaunched = true
             launchTerminal(in: terminal)
@@ -195,6 +277,78 @@ struct EmbeddedTerminalView: NSViewRepresentable {
             onServerReady: onServerReady,
             onOutputReceived: onOutputReceived
         )
+    }
+
+    /// Get the terminal font, preferring Nerd Fonts for oh-my-zsh icon support
+    /// Priority: User preference > Any installed Nerd Font > System monospace font
+    private static func getTerminalFont() -> NSFont {
+        let fontSize: CGFloat = 13
+
+        // Check user preference first
+        if let savedFontName = UserDefaults.standard.string(forKey: "terminal-font-name"),
+           let customFont = NSFont(name: savedFontName, size: fontSize) {
+            return customFont
+        }
+
+        // Dynamically find any installed Nerd Font
+        if let nerdFont = findInstalledNerdFont(size: fontSize) {
+            return nerdFont
+        }
+
+        // Fallback to system monospace font
+        return NSFont.monospacedSystemFont(ofSize: fontSize, weight: .regular)
+    }
+
+    /// Dynamically searches for any installed Nerd Font
+    /// Prefers monospace variants and popular fonts (Meslo, FiraCode, JetBrains)
+    private static func findInstalledNerdFont(size: CGFloat) -> NSFont? {
+        let fontManager = NSFontManager.shared
+        let allFonts = fontManager.availableFontFamilies
+
+        // Filter for Nerd Font families (contain "Nerd Font" or end with "NF")
+        let nerdFontFamilies = allFonts.filter { family in
+            family.contains("Nerd Font") || family.hasSuffix(" NF")
+        }
+
+        // Preferred font families in order (popular terminal fonts first)
+        let preferredPrefixes = ["Meslo", "FiraCode", "Fira Code", "JetBrains", "Cascadia", "Hack", "Source Code", "Inconsolata"]
+
+        // Sort: preferred fonts first, then prefer Mono variants
+        let sortedFamilies = nerdFontFamilies.sorted { a, b in
+            let aPreferredIndex = preferredPrefixes.firstIndex { a.hasPrefix($0) } ?? Int.max
+            let bPreferredIndex = preferredPrefixes.firstIndex { b.hasPrefix($0) } ?? Int.max
+            if aPreferredIndex != bPreferredIndex {
+                return aPreferredIndex < bPreferredIndex
+            }
+            // Prefer Mono variants for terminal use
+            let aMono = a.contains("Mono")
+            let bMono = b.contains("Mono")
+            if aMono != bMono { return aMono }
+            return a < b
+        }
+
+        // Try to get a Regular weight font from the first available family
+        for family in sortedFamilies {
+            if let members = fontManager.availableMembers(ofFontFamily: family) {
+                // Look for Regular weight first
+                for member in members {
+                    if let fontName = member[0] as? String,
+                       let weight = member[2] as? Int,
+                       weight >= 4 && weight <= 6 {  // Regular weight range
+                        if let font = NSFont(name: fontName, size: size) {
+                            return font
+                        }
+                    }
+                }
+                // Fallback to first available member
+                if let fontName = members.first?[0] as? String,
+                   let font = NSFont(name: fontName, size: size) {
+                    return font
+                }
+            }
+        }
+
+        return nil
     }
 
     private func launchTerminal(in terminal: MaestroTerminalView) {
@@ -559,6 +713,7 @@ struct TerminalSessionView: View {
     @ObservedObject var gitManager: GitManager
     let isTerminalLaunched: Bool
     let isClaudeRunning: Bool
+    let appearanceMode: AppearanceMode
     var onLaunchClaude: () -> Void
     var onClose: () -> Void
     var onTerminalLaunched: () -> Void
@@ -588,10 +743,18 @@ struct TerminalSessionView: View {
             // Status bar with controls
             HStack(spacing: 6) {
                 // Status indicator
-                Image(systemName: status.icon)
-                    .foregroundColor(status.color)
-                    .symbolEffect(.pulse, isActive: status == .working)
-                    .font(.caption)
+                Group {
+                    if #available(macOS 14.0, *) {
+                        Image(systemName: status.icon)
+                            .foregroundColor(status.color)
+                            .symbolEffect(.pulse, isActive: status == .working)
+                            .font(.caption)
+                    } else {
+                        Image(systemName: status.icon)
+                            .foregroundColor(status.color)
+                            .font(.caption)
+                    }
+                }
 
                 // Direct mode picker (replaces cycling toggle)
                 CompactModePicker(selectedMode: $mode, isDisabled: shouldLaunch)
@@ -701,6 +864,7 @@ struct TerminalSessionView: View {
                     shouldLaunch: shouldLaunch,
                     assignedBranch: assignedBranch,
                     mode: mode,
+                    appearanceMode: appearanceMode,
                     activityMonitor: activityMonitor,
                     onLaunched: {
                         onTerminalLaunched()
